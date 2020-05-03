@@ -1,0 +1,8 @@
+manala:
+    repository: /Users/loic/Ops/manala-recipes #git@github.com:loic-roux-404/manala-recipes.git
+    recipe: dev.python
+    sync:
+        - .manala/vagrant
+        - .manala/.gitignore .gitignore
+        #- ../ops.vagrant/.manala .manala/vagrant
+    template: ops.vagrant

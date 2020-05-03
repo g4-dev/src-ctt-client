@@ -1,0 +1,2 @@
+include .manala/python.mk
+

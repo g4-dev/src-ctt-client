@@ -1,0 +1,56 @@
+{
+	"domain": "localhost",
+	"box": "loic-roux-404/deb64-buster",
+	"vb_guest_update": false,
+	"box_update": false,
+	"git": {
+		"org": null,
+		"provider": "https://github.com"
+	},
+	"paths": {
+		"web": null,
+		"host": "./",
+		"guest": "/vagrant"
+	},
+	"network": {
+		"ip": "192.168.33.10",
+		"type": "private",
+		"dns": true,
+		"ports": [],
+		"ssl": {
+			"cert": null,
+			"path": "/etc/ssl"
+		}
+	},
+	"ansible": {
+		"disabled": false,
+		"playbook": null,
+		"inventory": null,
+		"type": false,
+		"vars": {
+			"keyboard_mac": false
+		}
+	},
+	"fs": {
+		"type": "rsync",
+		"opts": {
+			"auto": true,
+			"disabled": true,
+			"ignored": [
+				"/**/.DS_Store",
+				".git",
+				".vagrant",
+				".idea/",
+				".vscode/"
+			]
+		}
+	},
+	"provider": {
+		"type": "virtualbox",
+		"opts": {
+			"natdnshostresolver1": "on",
+			"cpus": "2",
+			"memory": "1024"
+		}
+	}
+}
