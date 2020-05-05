@@ -26,7 +26,8 @@
 		"disabled": false,
 		"playbook": null,
 		"inventory": null,
-		"type": false,
+		"type": "local",
+		"sub_playbook": "site.yml",
 		"vars": {
 			"keyboard_mac": false
 		}

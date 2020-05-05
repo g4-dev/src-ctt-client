@@ -44,6 +44,20 @@ class Network < Component
     end
   end
 
+  def routing
+    if Vagrant::Util::Platform.darwin? 
+      @gateway = `route -n get default | grep 'gateway' | awk '{print $2}'`.delete("\n")
+    elsif Vagrant::Util::Platform.linux? 
+      # Not tested
+      @gateway = `ip route show`[/default.*/][/\d+\.\d+\.\d+\.\d+/]
+    end
+
+    $vagrant.vm.provision :shell, 
+      run: "always", 
+      path: "#{__dir__}/utils/routing.py", 
+      args: "#{@gateway}"
+  end
+
   def ssl
     # Not tested
     cert = $config.network.ssl.cert
@@ -63,20 +77,6 @@ class Network < Component
         t.run = { inline: "certutil -enterprise -f -v -AddStore 'Root' '#{local_path}/#{cert}'"}
       end
     end
-  end
-
-  def routing
-    if Vagrant::Util::Platform.darwin? 
-      @gateway = `route -n get default | grep 'gateway' | awk '{print $2}'`.delete("\n")
-    elsif Vagrant::Util::Platform.linux? 
-      # Not tested
-      @gateway = `ip route show`[/default.*/][/\d+\.\d+\.\d+\.\d+/]
-    end
-
-    $vagrant.vm.provision :shell, 
-      run: "always", 
-      path: "#{__dir__}/utils/routing.py", 
-      args: "#{@gateway}"
   end
 
   def requirements
