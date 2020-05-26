@@ -1,6 +1,56 @@
 manala:
-    repository: /Users/loic/Ops/manala-recipes #git@github.com:loic-roux-404/manala-recipes.git
-    recipe: dev.python
+  repository: /Users/loic/Ops/manala-recipes
+  recipe: dev.python
 
-#config_dev:
-    #env: vagrant # docker / local
+repository_save: /Users/loic/Ops/manala-recipes
+
+
+vagrant: 
+  project_name: src-ctt-client
+  box: loic-roux-404/deb64-buster
+  box_update: false
+  box_version: null
+  vb_guest_update: false
+  domain: client.ctt.net
+  git: 
+    org: g4-dev
+    provider: https://github.com
+  paths: 
+    guest: /home/vagrant/trained_deepspeech/exploit-project
+    host: ./
+    web: ""
+  network: 
+    dns: true
+    ip: null
+    ports: []
+    ssl:
+        cert: null
+        path: /etc/ssl
+    type: private 
+  ansible: 
+    disabled: false
+    inventory: ""
+    playbook: playbook-ctt-client
+    sub_playbook: site.yml
+    type: local
+    vars:
+        keyboard_mac: false
+  fs: 
+    opts:
+        disabled: true
+        ignored:
+          - /**/.DS_Store
+          - .git
+          - .vagrant
+          - .idea/
+          - .vscode/
+        rsync_auto: true
+        smb_password: null
+        smb_username: null
+    type: rsync
+  provider:  
+    opts:
+        cpus: "2"
+        memory: "1024"
+        natdnshostresolver1: on
+    type: virtualbox

@@ -2,14 +2,15 @@
 # ==========
 # Playbook worker script
 # Execute playbook from a virtual environement
-# Usage : 
+# Usage :
 #   ./playbook-worker.sh or globally : mv playbook-worker.sh /usr/local/bin/playbook-worker
-# Arguments : 
+# Arguments :
 #   $1 : <git playbook url> Example: "https://github.com/g4-dev/playbook-ecs"
 #   $2 : <inventory name> (corresponding to inventories path in playbook root) Example: "dev"
 #   $3 : <custom sub playbook> Example: "database" (without the .yml)
 # ==========
 # TODO: check function python3 / ansible
+# TOTEST
 
 run_playbook(){
     PLAYBOOK=$2 || "site.yml"
@@ -43,7 +44,7 @@ playbook_check(){
 init_playbook() {
   cd /tmp
   PLAYBOOK_FOLDER=`ls $(basename "$1" .git)`
-  if [ ! -z "$PLAYBOOK_FOLDER" ]; then 
+  if [ ! -z "$PLAYBOOK_FOLDER" ]; then
     cd $PLAYBOOK_FOLDER
     git fetch origin master && git reset --hard origin/master
     return
