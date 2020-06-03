@@ -40,7 +40,9 @@ class Base < Component
 	def requirements()
 		if @UPDATE_VBGUEST && !Vagrant.has_plugin?('vagrant-vbguest')
 			system('vagrant plugin install vagrant-vbguest')
-		end
+    end
+    # Set @valid to true (component is ok)
+    return true
 	end
 # end Base class
 end

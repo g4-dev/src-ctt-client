@@ -1,34 +1,39 @@
 # Ansible provisioner component
 class Ansible < Component
-  PLAYBOOK_PATH = "$HOME/.ansible"
-  
+  PLAYBOOK_PATH = "/tmp"
+  DEFAULT_INVENTORY = 'inventory'
+  GALAXY_ROLE_FILE_DEFAULT = 'roles/requirements.yml'
+
   def initialize(cnf, git)
     @git = git
     super(cnf)
 
     if @valid
-      parse_config
+      self.gen_git_script
       self.dispatch(@cnf.type)
     end
   end
 
-  def ansible_local(local = true)
+  def ansible_local(ansible_mode = '_local')
     # Put playbook in guest
-    if local 
-      $vagrant.vm.provision :shell, inline: @git_clone
+    if ansible_mode
+      $vagrant.vm.provision :shell, inline: @get_playbook, privileged: false
     end
-    # Start ansible-playbook command  
-    $vagrant.vm.provision ansible_mode_id do |ansible|
-      ansible.provisioning_path = "#{PLAYBOOK_PATH}"
-      ansible.playbook = @cnf.playbook
-      ansible.inventory_path = @cnf.inventory # TODO : case no inventory
-      ansible.extra_vars = @cnf.extra_vars
+    # Start ansible-playbook command
+    $vagrant.vm.provision 'ansible'+ansible_mode do |ansible|
+      ansible.provisioning_path = "#{PLAYBOOK_PATH}/#{@cnf.playbook}/"
+      ansible.playbook = @cnf.sub_playbook
+      ansible.inventory_path = @cnf.inventory || DEFAULT_INVENTORY
+      ansible.extra_vars = @cnf.vars.to_h
+      ansible.compatibility_mode = '2.0'
+      ansible.limit = 'all'
+      ansible.galaxy_role_file = GALAXY_ROLE_FILE_DEFAULT
     end
   end
 
   def ansible_classic
-    system(git_clone)
-    self.ans_local(false)
+    system(@get_playbook)
+    self.ans_local('')
   end
 
   def ansible_worker
@@ -37,14 +42,18 @@ class Ansible < Component
       args: "#{@git_url} #{@cnf.sub_playbook} #{@cnf.inventory}"
   end
 
-  def parse_config
+  def gen_git_script
     if @cnf.playbook
-      @git_url = [
-        @git.provider, 
-        @git.org,
-        @cnf.playbook
-      ].join('/')
-      @git_clone = "git clone #{@git_url} #{PLAYBOOK_PATH}/#{@cnf.playbook} "
+      cd = "cd #{PLAYBOOK_PATH}"
+      git_url ="git@#{@git.provider}:#{@git.org}/#{@cnf.playbook}.git"
+      git_clone = "git clone #{git_url} "
+      # Build scripts
+      update_playbook = <<-SHELL
+      #{cd}/#{@cnf.playbook};\
+      git fetch;\
+      git reset --hard origin/#{@cnf.playbook_version}
+      SHELL
+      @get_playbook = "#{cd} && #{git_clone} || #{update_playbook}"
     end
   end
 
@@ -60,6 +69,8 @@ class Ansible < Component
         'missing'
       )
     end
+    # Set @valid to true (component is ok)
+    return true
   end
   # end class Ansible
 end

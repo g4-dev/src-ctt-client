@@ -9,12 +9,12 @@ vagrant:
   project_name: src-ctt-client
   box: loic-roux-404/deb64-buster
   box_update: false
-  box_version: null
+  box_version: 3.10.4
   vb_guest_update: false
-  domain: client.ctt.net
+  domain: ply.ctt.test
   git: 
     org: g4-dev
-    provider: https://github.com
+    provider: github.com
   paths: 
     guest: /home/vagrant/trained_deepspeech/exploit-project
     host: ./
@@ -29,8 +29,9 @@ vagrant:
     type: private 
   ansible: 
     disabled: false
-    inventory: ""
+    inventory: inventory
     playbook: playbook-ctt-client
+    playbook_version: master
     sub_playbook: site.yml
     type: local
     vars:

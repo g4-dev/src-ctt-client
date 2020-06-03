@@ -197,6 +197,6 @@ coverage.xml
 *.mo
 *.pot
 
-./config.yaml
+config.yaml
 
 
