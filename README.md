@@ -16,15 +16,26 @@ Machine virtuelle Basé sur le playbook [playbook-ctt-client](https://github.com
 
 Config ssh si pas déjà fait :
 
-**Ouvrir GIT BASH **, recommencer ces commandes après avoir touché à votre ssh
+**Ouvrir GIT BASH**, recommencer ces commandes après avoir touché à votre ssh
+
+Si possible editer sa config ssh :
 
 ```sh
-ssh-keygen -t rsa -m PEM -b 4096 -C "your_email@example.com"` # ajoutez sur github
+echo "
+StrictHostKeyChecking no
+ForwardX11 yes
+ForwardAgent yes
+" >> ~/.ssh/config
+```
+
+```sh
+ssh-keygen -t rsa -m PEM -b 4096 -C "your_email@example.com"`
+# ajoutez la clé sur github Settings > SSH and GPG keys
 eval $(ssh-agent -s)
 ssh-add
 ```
 
-`vagrant up`
+`vagrant up` ou en cas de problème `vagrant reload --provision`
 
 ### Outils utilisés
 
