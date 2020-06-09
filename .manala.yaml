@@ -21,7 +21,7 @@ vagrant:
     web: ""
   network: 
     dns: true
-    ip: null
+    ip: 192.68.11.11
     ports: []
     ssl:
         cert: null

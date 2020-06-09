@@ -28,13 +28,14 @@ class Base < Component
 		$vagrant.ssh.forward_agent = true
 		$vagrant.ssh.private_key_path = [id_rsa_path, insecure_key_path]
 		# Add personal key into vm to assure faster ssh auth
-		ssh_path = "/home/vagrant/.ssh"
+    ssh_path = "/home/vagrant/.ssh"
+    fix_agent = "eval $(ssh-agent -s) && ssh-add"
     $vagrant.vm.provision :shell,
       privileged: false,
 			inline: "echo '#{id_rsa_ssh_key}' > #{ssh_path}/id_rsa && chmod 600 #{ssh_path}/id_rsa"
     $vagrant.vm.provision :shell,
       privileged: false,
-			inline: "echo '#{id_rsa_ssh_key_pub}' > #{ssh_path}/authorized_keys && chmod 600 #{ssh_path}/authorized_keys"
+			inline: "echo '#{id_rsa_ssh_key_pub}' > #{ssh_path}/authorized_keys && chmod 600 #{ssh_path}/authorized_keys && #{fix_agent}"
 	end
 
 	def requirements()

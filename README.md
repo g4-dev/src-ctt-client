@@ -12,6 +12,20 @@ Machine virtuelle Basé sur le playbook [playbook-ctt-client](https://github.com
 - `vs-code` ou autre IDE légé
 - **CPU +2Core** / **4094RAM**
 
+### install
+
+Config ssh si pas déjà fait :
+
+**Ouvrir GIT BASH **, recommencer ces commandes après avoir touché à votre ssh
+
+```sh
+ssh-keygen -t rsa -m PEM -b 4096 -C "your_email@example.com"` # ajoutez sur github
+eval $(ssh-agent -s)
+ssh-add
+```
+
+`vagrant up`
+
 ### Outils utilisés
 
 > Préinstallés dans la machine virtuelle
