@@ -5,29 +5,29 @@ manala:
 repository_save: /Users/loic/Ops/manala-recipes
 
 
-vagrant: 
+vagrant:
   project_name: src-ctt-client
   box: loic-roux-404/deb64-buster
   box_update: false
   box_version: 3.10.4
   vb_guest_update: false
   domain: ply.ctt.test
-  git: 
+  git:
     org: g4-dev
     provider: github.com
-  paths: 
+  paths:
     guest: /home/vagrant/trained_deepspeech/exploit-project
     host: ./
     web: ""
-  network: 
+  network:
     dns: true
     ip: 192.68.11.11
     ports: []
     ssl:
         cert: null
         path: /etc/ssl
-    type: private 
-  ansible: 
+    type: private
+  ansible:
     disabled: false
     inventory: inventory
     playbook: playbook-ctt-client
@@ -37,7 +37,7 @@ vagrant:
     vars:
         ansible_host: localhost
         ansible_port: 22
-  fs: 
+  fs:
     opts:
         disabled: true
         ignored:
@@ -50,9 +50,10 @@ vagrant:
         smb_password: null
         smb_username: null
     type: rsync
-  provider:  
+  provider:
     opts:
         cpus: "2"
         memory: "1024"
         natdnshostresolver1: on
+        natdnsproxy1: on
     type: virtualbox
