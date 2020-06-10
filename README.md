@@ -2,6 +2,10 @@
 
 Sources du model deepspeech pour convertir des audios en texte.
 
+### TODO
+
+- redirect audio :  https://github.com/GeoffreyPlitt/vagrant-audio/blob/master/Vagrantfile
+
 ### Environement
 Machine virtuelle Basé sur le playbook [playbook-ctt-client](https://github.com/g4-dev/playbook-ctt-client)
 
