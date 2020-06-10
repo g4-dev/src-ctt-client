@@ -44,16 +44,10 @@ class Ansible < Component
 
   def gen_git_script
     if @cnf.playbook
-      cd = "cd #{PLAYBOOK_PATH}"
-      git_url ="git@#{@git.provider}:#{@git.org}/#{@cnf.playbook}"
-      git_clone = "git clone #{git_url} "
-      # Build scripts
-      update_playbook = <<-SHELL
-      #{cd}/#{@cnf.playbook};\
-      git fetch;\
-      git reset --hard origin/#{@cnf.playbook_version}
-      SHELL
-      @get_playbook = "#{cd} && #{git_clone} || #{update_playbook}"
+      @git_url ="git@#{@git.provider}:#{@git.org}/#{@cnf.playbook}"
+      full_path = "#{PLAYBOOK_PATH}/#{@cnf.playbook}"
+      git_clone = "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone #{@git_url} #{full_path}"
+      @get_playbook = "rm -rf #{full_path} || true; #{git_clone}"
     end
   end
 
