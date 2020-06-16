@@ -25,10 +25,10 @@ def callback(in_data, frame_count, time_info, status):
 
 # start Recording
 stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=callback)
-# stream.start_stream()
+stream.start_stream()
 
 read_list = [serversocket]
-print "recording..."
+print("recording...")
 
 try:
     while True:
@@ -37,7 +37,7 @@ try:
             if s is serversocket:
                 (clientsocket, address) = serversocket.accept()
                 read_list.append(clientsocket)
-                print "Connection from", address
+                print ("Connection from", address)
             else:
                 data = s.recv(1024)
                 if not data:
@@ -46,7 +46,7 @@ except KeyboardInterrupt:
     pass
 
 
-print "finished recording"
+print ("finished recording")
 
 serversocket.close()
 # stop Recording
