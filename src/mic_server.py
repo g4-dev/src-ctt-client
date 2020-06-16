@@ -25,6 +25,7 @@ def callback(in_data, frame_count, time_info, status):
 
 # start Recording
 stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=callback)
+# Not sure of new line
 stream.start_stream()
 
 read_list = [serversocket]
