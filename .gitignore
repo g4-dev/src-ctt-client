@@ -199,4 +199,5 @@ coverage.xml
 
 config.yaml
 
-
+portaudio
+**/*.wav
