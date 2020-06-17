@@ -26,7 +26,7 @@ class Audio(object):
     CHANNELS = 1
     BLOCKS_PER_SECOND = 50
 
-    def __init__(self, callback=None, device=None, input_rate=RATE_PROCESS, file=None):
+    def __init__(self, callback=None, device=None, input_rate=RATE_PROCESS, file=None,curr_wf='render.wav'):
         def proxy_callback(in_data, frame_count, time_info, status):
             #pylint: disable=unused-argument
             if self.chunk is not None:
@@ -41,6 +41,13 @@ class Audio(object):
         self.block_size = int(self.RATE_PROCESS / float(self.BLOCKS_PER_SECOND))
         self.block_size_input = int(self.input_rate / float(self.BLOCKS_PER_SECOND))
         self.pa = pyaudio.PyAudio()
+        print("creating wav at %s",curr_wf)
+        self.curr_wf = wave.open(curr_wf, 'wb')
+        self.curr_wf.setnchannels(self.CHANNELS)
+        # wf.setsampwidth(self.pa.get_sample_size(FORMAT))
+        assert self.FORMAT == pyaudio.paInt16
+        self.curr_wf.setsampwidth(2)
+        self.curr_wf.setframerate(self.sample_rate)
 
         kwargs = {
             'format': self.FORMAT,
@@ -94,23 +101,19 @@ class Audio(object):
 
     frame_duration_ms = property(lambda self: 1000 * self.block_size // self.sample_rate)
 
-    def write_wav(self, filename, data):
-        logging.info("write wav %s", filename)
-        wf = wave.open(filename, 'wb')
-        wf.setnchannels(self.CHANNELS)
-        # wf.setsampwidth(self.pa.get_sample_size(FORMAT))
-        assert self.FORMAT == pyaudio.paInt16
-        wf.setsampwidth(2)
-        wf.setframerate(self.sample_rate)
-        wf.writeframes(data)
-        wf.close()
+    def write_wav(self, data):
+        logging.info("write wav")
+        self.curr_wf.writeframes(data)
+
+    def close_wav(self):
+        self.curr_wf.close()
 
 
 class VADAudio(Audio):
     """Filter & segment audio with voice activity detection."""
 
-    def __init__(self, aggressiveness=3, device=None, input_rate=None, file=None):
-        super().__init__(device=device, input_rate=input_rate, file=file)
+    def __init__(self, aggressiveness=3, device=None, input_rate=None, file=None, curr_wf=None):
+        super().__init__(device=device, input_rate=input_rate, file=file, curr_wf=curr_wf)
         self.vad = webrtcvad.Vad(aggressiveness)
 
     def frame_generator(self):
@@ -172,7 +175,9 @@ def ini_ctt():
     response = conn.getresponse()
     jwt_token = json.loads(response.read().decode())['token']
     auth = "Authorization Bearer {}".format(jwt_token)
+    # Create transcript api call
     print('Connected to ctt api')
+    return "uuid.wav"
 
 async def ws(text):
     async with websockets.connect('ws://{}'.format(ARGS.websocket), extra_headers=auth) as websocket:
@@ -180,6 +185,7 @@ async def ws(text):
         response = await websocket.recv()
         print(response)
 
+vad_audio = None
 def main(ARGS):
     # Load DeepSpeech model
     if os.path.isdir(ARGS.model):
@@ -197,12 +203,13 @@ def main(ARGS):
         model.enableDecoderWithLM(ARGS.lm, ARGS.trie, ARGS.lm_alpha, ARGS.lm_beta)
 
     # Connect to ctt api
-    #ini_ctt()
+    curr_wf = os.path.join(ARGS.savewav, ini_ctt())
     # Start audio with VAD
     vad_audio = VADAudio(aggressiveness=ARGS.vad_aggressiveness,
                          device=ARGS.device,
                          input_rate=ARGS.rate,
-                         file=ARGS.file)
+                         file=ARGS.file,
+                         curr_wf=curr_wf)
     print("Listening (ctrl-C to exit)...")
     frames = vad_audio.vad_collector()
 
@@ -224,13 +231,13 @@ def main(ARGS):
             logging.debug("end utterence")
             if ARGS.savewav:
                 # TODO use the UUID to place data
-                vad_audio.write_wav(os.path.join(ARGS.savewav, "tst.wav"), wav_data)
+                vad_audio.write_wav(wav_data)
                 wav_data = bytearray()
             text = model.finishStream(stream_context)
             print("Recognized: %s" % text)
             # Send to websocket
-            # asyncio.set_event_loop(asyncio.new_event_loop()) 
-            # asyncio.get_event_loop().run_until_complete(ws('{}'.format(text)))
+            #asyncio.set_event_loop(asyncio.new_event_loop()) 
+            #asyncio.get_event_loop().run_until_complete(ws('{}'.format(text)))
             # =================
             stream_context = model.createStream()
 
@@ -276,4 +283,9 @@ if __name__ == '__main__':
     # Bootstrap transcriber
     ARGS = parser.parse_args()
     if ARGS.savewav: os.makedirs(ARGS.savewav, exist_ok=True)
-    main(ARGS)
+    try:
+        main(ARGS)
+    except KeyboardInterrupt:
+        vad_audio.close()
+        pass
+    
