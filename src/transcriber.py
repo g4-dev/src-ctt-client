@@ -41,7 +41,6 @@ class Audio(object):
         self.block_size = int(self.RATE_PROCESS / float(self.BLOCKS_PER_SECOND))
         self.block_size_input = int(self.input_rate / float(self.BLOCKS_PER_SECOND))
         self.pa = pyaudio.PyAudio()
-        print("creating wav at %s",curr_wf)
         self.curr_wf = wave.open(curr_wf, 'wb')
         self.curr_wf.setnchannels(self.CHANNELS)
         # wf.setsampwidth(self.pa.get_sample_size(FORMAT))
@@ -160,86 +159,101 @@ class VADAudio(Audio):
                     yield None
                     ring_buffer.clear()
 
-# Communicate with deno websocket backend
-auth = ""
-def ini_ctt():
-    load_dotenv(dotenv_path=ARGS.env)
-    conn = http.client.HTTPConnection(os.getenv("API_URL"))
-    headers = {'Content-type': 'application/json'}
+class cttApi(object):
+    """Communicate with ctt api"""
 
-    conn.request('POST', '/login', json.dumps({
-        'name': os.getenv("API_USER"),
-        'token':os.getenv("API_TOKEN")
-     }), headers={'Content-type': 'application/json', 'Origin': os.getenv("API_USER")})
+    def __init__(self):
+        load_dotenv(dotenv_path=ARGS.env)
+        self.auth = ""
+        self.conn = http.client.HTTPConnection(os.getenv("API_URL"))
+        self.headers = {'Content-type': 'application/json', 'Origin': os.getenv("API_USER")}
 
-    response = conn.getresponse()
-    jwt_token = json.loads(response.read().decode())['token']
-    auth = "Authorization Bearer {}".format(jwt_token)
-    # Create transcript api call
-    print('Connected to ctt api')
-    return "uuid.wav"
+        self.conn.request('POST', '/login', json.dumps({
+            'name': os.getenv('API_USER'),
+            'token': os.getenv('API_TOKEN')
+        }), headers=self.headers)
 
-async def ws(text):
-    async with websockets.connect('ws://{}'.format(ARGS.websocket), extra_headers=auth) as websocket:
-        await websocket.send(text)
-        response = await websocket.recv()
-        print(response)
+        response = self.conn.getresponse()
+        jwt_token = json.loads(response.read().decode())['token']
+        self.auth = {'Authorization': "Bearer {}".format(jwt_token)}
+    
+    def progress_transcript(self):
+        self.conn.request('POST', '/transcripts', json.dumps({}), headers={**self.headers,**self.auth})
+        response = self.conn.getresponse()
+        return json.loads(response.read().decode())
+    
+    #def done_transcript(self):
 
-vad_audio = None
-def main(ARGS):
-    # Load DeepSpeech model
-    if os.path.isdir(ARGS.model):
-        model_dir = ARGS.model
-        ARGS.model = os.path.join(model_dir, 'output_graph.tflite')
-        ARGS.lm = os.path.join(model_dir, ARGS.lm)
-        ARGS.trie = os.path.join(model_dir, ARGS.trie)
+    async def ws(self,text):
+        async with websockets.connect('ws://{}'.format(ARGS.websocket), extra_headers=self.auth) as websocket:
+            await websocket.send(text)
+            response = await websocket.recv()
+            print(response)
 
-    print('Initializing model...')
-    logging.info("ARGS.model: %s", ARGS.model)
-    model = deepspeech.Model(ARGS.model, ARGS.beam_width)
-    if ARGS.lm and ARGS.trie:
-        logging.info("ARGS.lm: %s", ARGS.lm)
-        logging.info("ARGS.trie: %s", ARGS.trie)
-        model.enableDecoderWithLM(ARGS.lm, ARGS.trie, ARGS.lm_alpha, ARGS.lm_beta)
+class Transcriber(object):
+    """Wrapper for transcriber process and his components"""
 
-    # Connect to ctt api
-    curr_wf = os.path.join(ARGS.savewav, ini_ctt())
-    # Start audio with VAD
-    vad_audio = VADAudio(aggressiveness=ARGS.vad_aggressiveness,
-                         device=ARGS.device,
-                         input_rate=ARGS.rate,
-                         file=ARGS.file,
-                         curr_wf=curr_wf)
-    print("Listening (ctrl-C to exit)...")
-    frames = vad_audio.vad_collector()
+    def __init__(self, ARGS):
+        # Load DeepSpeech model
+        if os.path.isdir(ARGS.model):
+            model_dir = ARGS.model
+            ARGS.model = os.path.join(model_dir, 'output_graph.tflite')
+            ARGS.lm = os.path.join(model_dir, ARGS.lm)
+            ARGS.trie = os.path.join(model_dir, ARGS.trie)
 
-    # Stream from microphone to DeepSpeech using VAD
-    spinner = None
-    if not ARGS.nospinner:
-        spinner = Halo(spinner='line')
-        
-    stream_context = model.createStream()
-    wav_data = bytearray()
-    for frame in frames:
-        if frame is not None:
-            if spinner: spinner.start()
-            logging.debug("streaming frame")
-            model.feedAudioContent(stream_context, np.frombuffer(frame, np.int16))
-            if ARGS.savewav: wav_data.extend(frame)
-        else:
-            if spinner: spinner.stop()
-            logging.debug("end utterence")
-            if ARGS.savewav:
-                # TODO use the UUID to place data
-                vad_audio.write_wav(wav_data)
-                wav_data = bytearray()
-            text = model.finishStream(stream_context)
-            print("Recognized: %s" % text)
-            # Send to websocket
-            #asyncio.set_event_loop(asyncio.new_event_loop()) 
-            #asyncio.get_event_loop().run_until_complete(ws('{}'.format(text)))
-            # =================
-            stream_context = model.createStream()
+        print('Initializing model...')
+        logging.info("ARGS.model: %s", ARGS.model)
+        self.model = deepspeech.Model(ARGS.model, ARGS.beam_width)
+        if ARGS.lm and ARGS.trie:
+            logging.info("ARGS.lm: %s", ARGS.lm)
+            logging.info("ARGS.trie: %s", ARGS.trie)
+            self.model.enableDecoderWithLM(ARGS.lm, ARGS.trie, ARGS.lm_alpha, ARGS.lm_beta)
+
+        # Connect to ctt api
+        self.api = cttApi()
+        print('Connected to call2Text api')
+        self.curr_wf = os.path.join(ARGS.savewav, 
+                                    self.api.progress_transcript()['transcript']['uuid']+'.wav')
+        print("creating wav at : %s" % self.curr_wf)
+
+        # Start audio with VAD
+        self.vad_audio = VADAudio(aggressiveness=ARGS.vad_aggressiveness,
+                            device=ARGS.device,
+                            input_rate=ARGS.rate,
+                            file=ARGS.file,
+                            curr_wf=self.curr_wf)
+        print("Listening (ctrl-C to exit)...")
+
+    def main(self, ARGS):
+        frames = self.vad_audio.vad_collector()
+
+        # Stream from microphone to DeepSpeech using VAD
+        spinner = None
+        if not ARGS.nospinner:
+            spinner = Halo(spinner='line')
+            
+        stream_context = self.model.createStream()
+        wav_data = bytearray()
+        for frame in frames:
+            if frame is not None:
+                if spinner: spinner.start()
+                logging.debug("streaming frame")
+                self.model.feedAudioContent(stream_context, np.frombuffer(frame, np.int16))
+                if ARGS.savewav: wav_data.extend(frame)
+            else:
+                if spinner: spinner.stop()
+                logging.debug("end utterence")
+                if ARGS.savewav:
+                    # TODO use the UUID to place data
+                    self.vad_audio.write_wav(wav_data)
+                    wav_data = bytearray()
+                text = self.model.finishStream(stream_context)
+                print("Recognized: %s" % text)
+                # Send to websocket
+                # asyncio.set_event_loop(asyncio.new_event_loop()) 
+                # asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))
+                # =================
+                stream_context = self.model.createStream()
 
 if __name__ == '__main__':
     BEAM_WIDTH = 500
@@ -284,8 +298,10 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
     if ARGS.savewav: os.makedirs(ARGS.savewav, exist_ok=True)
     try:
-        main(ARGS)
+        transcriber = Transcriber(ARGS)
+        transcriber.main(ARGS)
     except KeyboardInterrupt:
-        vad_audio.close()
+        transcriber.vad_audio.close_wav()
+        # TODO API call to upload
         pass
-    
+    # TODO catch all error and set transcript to canceled
