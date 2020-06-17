@@ -10,7 +10,7 @@ cd portaudio
 sudo make install
 sudo ldconfig
 cd ..
-sudo pip3 install pyaudio
+sudo pip3 install -r requirements.txt
 sudo cp ./src/transcriber.py /usr/local/bin/transcriber
 
 # fix conf
