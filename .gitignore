@@ -201,3 +201,5 @@ config.yaml
 
 portaudio
 **/*.wav
+tests-model
+src/model-files/*
