@@ -189,9 +189,8 @@ class cttApi(object):
     async def ws(self,text):
         extra_headers = {**self.auth,**{'uuid':self.transcript['transcript']['uuid']}}
         async with websockets.connect('ws://{}'.format(ARGS.websocket),extra_headers=extra_headers) as websocket:
-            print(text)
-            response = await websocket.recv()
             await websocket.send(text)
+            response = await websocket.recv()
             print(response)
 
 class Transcriber(object):
@@ -253,9 +252,8 @@ class Transcriber(object):
                 text = self.model.finishStream(stream_context)
                 print("Recognized: %s" % text)
                 # Send to websocket
-                asyncio.set_event_loop(asyncio.new_event_loop()) 
-                asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))                # =================
                 stream_context = self.model.createStream()
+                asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))
 
 def main(ARGS):
     transcriber = Transcriber(ARGS)

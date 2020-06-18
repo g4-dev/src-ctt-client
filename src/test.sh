@@ -3,5 +3,5 @@
 python3 transcriber.py \
     -m $(pwd)/model-files/ \
     -w files/\
-    --websocket localhost:8081/socket
+    --websocket localhost:8081/transcripts/socket
 
