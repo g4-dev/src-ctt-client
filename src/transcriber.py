@@ -167,6 +167,7 @@ class cttApi(object):
         self.auth = ""
         self.conn = http.client.HTTPConnection(os.getenv("API_URL"))
         self.headers = {'Content-type': 'application/json', 'Origin': os.getenv("API_USER")}
+        self.transcript = {}
 
         self.conn.request('POST', '/login', json.dumps({
             'name': os.getenv('API_USER'),
@@ -180,14 +181,17 @@ class cttApi(object):
     def progress_transcript(self):
         self.conn.request('POST', '/transcripts', json.dumps({}), headers={**self.headers,**self.auth})
         response = self.conn.getresponse()
-        return json.loads(response.read().decode())
+        self.transcript = json.loads(response.read().decode())
+        return self.transcript
     
     #def done_transcript(self):
 
     async def ws(self,text):
-        async with websockets.connect('ws://{}'.format(ARGS.websocket), extra_headers=self.auth) as websocket:
-            await websocket.send(text)
+        extra_headers = {**self.auth,**{'uuid':self.transcript['transcript']['uuid']}}
+        async with websockets.connect('ws://{}'.format(ARGS.websocket),extra_headers=extra_headers) as websocket:
+            print(text)
             response = await websocket.recv()
+            await websocket.send(text)
             print(response)
 
 class Transcriber(object):
@@ -212,8 +216,8 @@ class Transcriber(object):
         # Connect to ctt api
         self.api = cttApi()
         print('Connected to call2Text api')
-        self.curr_wf = os.path.join(ARGS.savewav, 
-                                    self.api.progress_transcript()['transcript']['uuid']+'.wav')
+        transcript_uuid = self.api.progress_transcript()['transcript']['uuid']
+        self.curr_wf = os.path.join(ARGS.savewav, "{}.wav".format(transcript_uuid))
         print("creating wav at : %s" % self.curr_wf)
 
         # Start audio with VAD
@@ -224,7 +228,7 @@ class Transcriber(object):
                             curr_wf=self.curr_wf)
         print("Listening (ctrl-C to exit)...")
 
-    def main(self, ARGS):
+    def transcribe(self, ARGS):
         frames = self.vad_audio.vad_collector()
 
         # Stream from microphone to DeepSpeech using VAD
@@ -244,16 +248,23 @@ class Transcriber(object):
                 if spinner: spinner.stop()
                 logging.debug("end utterence")
                 if ARGS.savewav:
-                    # TODO use the UUID to place data
                     self.vad_audio.write_wav(wav_data)
                     wav_data = bytearray()
                 text = self.model.finishStream(stream_context)
                 print("Recognized: %s" % text)
                 # Send to websocket
-                # asyncio.set_event_loop(asyncio.new_event_loop()) 
-                # asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))
-                # =================
+                asyncio.set_event_loop(asyncio.new_event_loop()) 
+                asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))                # =================
                 stream_context = self.model.createStream()
+
+def main(ARGS):
+    transcriber = Transcriber(ARGS)
+    try:
+        transcriber.transcribe(ARGS)
+    except KeyboardInterrupt:
+        transcriber.vad_audio.close_wav()
+        # TODO API call to upload
+        pass
 
 if __name__ == '__main__':
     BEAM_WIDTH = 500
@@ -290,18 +301,11 @@ if __name__ == '__main__':
                         help=f"Beam width used in the CTC decoder when building candidate transcriptions. Default: {BEAM_WIDTH}")
     # ctt
     parser.add_argument('-ws', '--websocket',
-                        help="Choose an url to send your text", default='localhost:8082/socket')
+                        help="Choose an url to send your text", default='localhost:8081/transcripts/socket')
     parser.add_argument('-e', '--env',
                         help="Precise en env file", default='.env')
 
     # Bootstrap transcriber
     ARGS = parser.parse_args()
     if ARGS.savewav: os.makedirs(ARGS.savewav, exist_ok=True)
-    try:
-        transcriber = Transcriber(ARGS)
-        transcriber.main(ARGS)
-    except KeyboardInterrupt:
-        transcriber.vad_audio.close_wav()
-        # TODO API call to upload
-        pass
-    # TODO catch all error and set transcript to canceled
+    main(ARGS)
