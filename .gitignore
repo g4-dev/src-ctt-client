@@ -204,3 +204,4 @@ portaudio
 **/*.wav
 tests-model
 src/model-files/*
+src/files/*

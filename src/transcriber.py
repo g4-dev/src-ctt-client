@@ -11,6 +11,7 @@ from scipy import signal
 import asyncio
 import websockets
 import http.client
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 import json
 from dotenv import load_dotenv
 import os
@@ -165,8 +166,13 @@ class cttApi(object):
     def __init__(self):
         load_dotenv(dotenv_path=ARGS.env)
         self.auth = ""
-        self.conn = http.client.HTTPConnection(os.getenv("API_URL"))
-        self.headers = {'Content-type': 'application/json', 'Origin': os.getenv("API_USER")}
+        self.protocol = os.getenv("API_PROTOCOL")
+        if self.protocol== 'http':
+            self.conn = http.client.HTTPConnection(os.getenv("API_URL"))
+        else:
+            self.conn = http.client.HTTPSConnection(os.getenv("API_URL"))
+        
+        self.headers = {'Content-Type': 'application/json', 'Origin': os.getenv("API_USER")}
         self.transcript = {}
 
         self.conn.request('POST', '/login', json.dumps({
@@ -184,7 +190,24 @@ class cttApi(object):
         self.transcript = json.loads(response.read().decode())
         return self.transcript
     
-    #def done_transcript(self):
+    def done_transcript(self,audio_path,text_path):
+        print("Trigger send of transcript")
+        #/transcripts/save-audio
+        mp_encoder = MultipartEncoder(
+            fields={
+                'text_file': (self.transcript['transcript']['uuid']+".txt", open(text_path, 'rb'), 'text/plain'),
+                'audio_file': (self.transcript['transcript']['uuid']+".wav", open(audio_path, 'rb'), 'audio/wave'),
+            }
+        )
+        encoder_headers={'Content-Type': mp_encoder.content_type}
+        full_headers={**self.headers,**self.auth,**encoder_headers}
+        self.conn.request('POST',
+            '/transcripts/done',
+            body=mp_encoder,  # Build multipart form-data to send files
+            headers=full_headers
+        )
+        response = self.conn.getresponse()
+        return json.loads(response.read().decode())
 
     async def ws(self,text):
         extra_headers = {**self.auth,**{'uuid':self.transcript['transcript']['uuid']}}
@@ -217,6 +240,10 @@ class Transcriber(object):
         print('Connected to call2Text api')
         transcript_uuid = self.api.progress_transcript()['transcript']['uuid']
         self.curr_wf = os.path.join(ARGS.savewav, "{}.wav".format(transcript_uuid))
+        self.curr_txt = os.path.join(ARGS.savetext, "{}.txt".format(transcript_uuid))
+        # Opening file after defining path
+        self.transcript_text = open(self.curr_txt, "w")
+        self.transcript_text.close()
         print("creating wav at : %s" % self.curr_wf)
 
         # Start audio with VAD
@@ -251,9 +278,15 @@ class Transcriber(object):
                     wav_data = bytearray()
                 text = self.model.finishStream(stream_context)
                 print("Recognized: %s" % text)
+                self.write_text(text)
                 # Send to websocket
                 stream_context = self.model.createStream()
                 asyncio.get_event_loop().run_until_complete(self.api.ws('{}'.format(text)))
+        
+    def write_text(self, text):
+        self.transcript_text = open(self.curr_txt, "a")
+        self.transcript_text.write("{}\n".format(text))
+        self.transcript_text.close()
 
 def main(ARGS):
     transcriber = Transcriber(ARGS)
@@ -261,7 +294,7 @@ def main(ARGS):
         transcriber.transcribe(ARGS)
     except KeyboardInterrupt:
         transcriber.vad_audio.close_wav()
-        # TODO API call to upload
+        transcriber.api.done_transcript(transcriber.curr_wf,transcriber.curr_txt)
         pass
 
 if __name__ == '__main__':
@@ -277,8 +310,11 @@ if __name__ == '__main__':
                         help="Set aggressiveness of VAD: an integer between 0 and 3, 0 being the least aggressive about filtering out non-speech, 3 the most aggressive. Default: 3")
     parser.add_argument('--nospinner', action='store_true',
                         help="Disable spinner")
+    # Saved files after processing
     parser.add_argument('-w', '--savewav',
-                        help="Save .wav files of utterences to given directory")
+                        help="Save .wav files of utterences to given directory", default="files/waves")
+    parser.add_argument('-txt', '--savetext',
+                        help="Save .txt files of utterences to given directory", default="files/texts")
     parser.add_argument('-f', '--file',
                         help="Read from .wav file instead of microphone")
     parser.add_argument('-m', '--model', required=True,
@@ -306,4 +342,5 @@ if __name__ == '__main__':
     # Bootstrap transcriber
     ARGS = parser.parse_args()
     if ARGS.savewav: os.makedirs(ARGS.savewav, exist_ok=True)
+    if ARGS.savetext: os.makedirs(ARGS.savetext, exist_ok=True)
     main(ARGS)
