@@ -20,9 +20,9 @@ vagrant:
     host: ./
     web: ""
   network:
-    dns: false
+    dns: true
     fix_routing: false
-    ip: null
+    ip: 192.168.11.11
     ports: []
     ssl:
         cert: null
