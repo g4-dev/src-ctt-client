@@ -2,4 +2,4 @@
 
 python3 transcriber.py \
     -m $(pwd)/model-files/ \
-    --websocket localhost:8082
+    --websocket ctt-server.loicroux.com:82
