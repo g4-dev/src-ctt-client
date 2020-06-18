@@ -214,12 +214,14 @@ class cttApi(object):
         async with websockets.connect('ws://{}'.format(ARGS.websocket),extra_headers=extra_headers) as websocket:
             await websocket.send(text)
             response = await websocket.recv()
-            print(response)
+            print("ws : ",response)
 
 class Transcriber(object):
     """Wrapper for transcriber process and his components"""
 
     def __init__(self, ARGS):
+        # First Connect to ctt api
+        self.api = cttApi()
         # Load DeepSpeech model
         if os.path.isdir(ARGS.model):
             model_dir = ARGS.model
@@ -235,8 +237,6 @@ class Transcriber(object):
             logging.info("ARGS.trie: %s", ARGS.trie)
             self.model.enableDecoderWithLM(ARGS.lm, ARGS.trie, ARGS.lm_alpha, ARGS.lm_beta)
 
-        # Connect to ctt api
-        self.api = cttApi()
         print('Connected to call2Text api')
         transcript_uuid = self.api.progress_transcript()['transcript']['uuid']
         self.curr_wf = os.path.join(ARGS.savewav, "{}.wav".format(transcript_uuid))
