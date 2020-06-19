@@ -15,6 +15,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 import json
 from dotenv import load_dotenv
 import os
+from  websockets.exceptions import WebSocketException
 
 logging.basicConfig(level=20)
 
@@ -257,6 +258,15 @@ class cttApi(object):
             response = await websocket.recv()
             print("ws : ", response)
 
+    def canceled_transcript(self):
+        self.conn.request(
+            "PATCH",
+            "/transcripts/"+self.transcript["transcript"]["uuid"],
+            headers=self.headers,
+        )
+        response = self.conn.getresponse()
+        print("Canceled transcript")
+        return json.loads(response.read().decode())
 
 class Transcriber(object):
     """Wrapper for transcriber process and his components"""
@@ -344,23 +354,27 @@ class Transcriber(object):
         self.transcript_text.close()
 
     def retry(self):
-        if self.retries > self.MAX_RETRY: raise Exception('Too many retries')
+        if self.retries > self.MAX_RETRY: return False
         self.retries +=1
+        return True
 
 def main(ARGS):
     transcriber = Transcriber(ARGS)
     try:
         transcriber.transcribe(ARGS)
+    except WebSocketException:
+        if False == transcriber.retry(): transcriber.api.canceled_transcript()
+        transcriber.api.connect()
+        transcriber.api.done_transcript(transcriber.curr_wf, transcriber.curr_txt)
     except ConnectionError:
         print("Retrying update api...")
-        transcriber.retry()
+        if False == transcriber.retry() : transcriber.api.canceled_transcript()
         transcriber.api.connect()
         transcriber.api.done_transcript(transcriber.curr_wf, transcriber.curr_txt)
     except KeyboardInterrupt:
         transcriber.vad_audio.close_wav()
         transcriber.api.done_transcript(transcriber.curr_wf, transcriber.curr_txt)
         pass
-
 
 if __name__ == "__main__":
     BEAM_WIDTH = 500
