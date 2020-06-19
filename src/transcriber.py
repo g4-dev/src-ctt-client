@@ -260,7 +260,7 @@ class cttApi(object):
 
     def canceled_transcript(self):
         self.conn.request(
-            "PATCH",
+            "POST",
             "/transcripts/"+self.transcript["transcript"]["uuid"],
             headers=self.headers,
         )
@@ -362,10 +362,11 @@ def main(ARGS):
     transcriber = Transcriber(ARGS)
     try:
         transcriber.transcribe(ARGS)
-    except WebSocketException:
-        if False == transcriber.retry(): transcriber.api.canceled_transcript()
-        transcriber.api.connect()
-        transcriber.api.done_transcript(transcriber.curr_wf, transcriber.curr_txt)
+    # except WebSocketException:
+    #     print('Failed to communicate with websocket')
+    #     if False == transcriber.retry(): transcriber.api.canceled_transcript()
+    #     transcriber.api.connect()
+    #     transcriber.api.done_transcript(transcriber.curr_wf, transcriber.curr_txt)
     except ConnectionError:
         print("Retrying update api...")
         if False == transcriber.retry() : transcriber.api.canceled_transcript()
